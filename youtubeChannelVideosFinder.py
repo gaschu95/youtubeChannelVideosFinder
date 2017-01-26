@@ -32,124 +32,6 @@ dateToStartFrom = None
 dateToGoBackTo = None
 timeInterval = None
 
-def read_args():
-	'''
-	read args from stdin
-	'''
-
-	# ------------------------------------------
-	# Initialization
-	# ------------------------------------------
-		
-	# we first initialize our parser then we use it to parse the provided args
-	# 	references: 
-	# 		https://docs.python.org/2/library/argparse.html
-	#		http://pymotw.com/2/argparse/
-	#		https://docs.python.org/2/howto/argparse.html
-	global isInitialized
-
-	global log
-	global args
-	global youtubeApiUrl
-	global youtubeChannelsApiUrl
-	global youtubeSearchApiUrl
-
-	global requestParametersChannelId
-	global requestChannelVideosInfo
-	global dateToStartFrom
-	global dateToGoBackTo
-	global timeInterval
-
-	parser = argparse.ArgumentParser(description='This program finds all videos in a given Youtube channel')
-
-	parser.add_argument('-k', '--api-key', dest='apiKey', action='store', required=True, help='Google Data API key to use. You can get one here: https://console.developers.google.com')
-	parser.add_argument('-c', '--channel', dest='channel', action='store', required=True, help='Youtube channel to get videos from')
-	parser.add_argument('-o', '--output-file-path', dest='outputFilePath', action='store', default='', help='File to write found video links to (content replaced each time). If this option is not specified, the links are sent to the standard output')
-
-	parser.add_argument('-x', '--date-from', dest='dateFrom', action='store', help='Videos published after this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, the current date is taken')
-	parser.add_argument('-y', '--date-to', dest='dateTo', action='store', help='Videos published before this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, we go back one month (related to -b / --date-from)')
-	parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 30 days')
-
-	outputDetailLevel = parser.add_mutually_exclusive_group()
-	outputDetailLevel.add_argument('-q', '--quiet', dest='quiet', action='store_true', default=False, help='Only print out results.. or fatal errors')
-	outputDetailLevel.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False, help='Print out detailed information during execution (e.g., invoked URLs, ...)')
-	outputDetailLevel.add_argument('-d', '--debug', dest='debug', action='store_true', default=False, help='Print out all the gory details')
-
-	parser.add_argument('-l', '--log-file-path', dest='logFilePath', action='store', help='File to write the logs to (content replaced each time). If this option is not specified, the logs are sent to the standard output (according to the verbosity level)')
-
-	parser.add_argument('--version', action='version', version='1.0') # aka how much time can we lose while programming :p (https://code.google.com/p/argparse/issues/detail?id=43)
-
-	args = parser.parse_args()
-
-	# logger configuration
-	log = logging.getLogger('_name_')
-
-	handler = None
-	if(args.logFilePath is not None):
-		handler = logging.FileHandler(args.logFilePath, "w", encoding=None, delay="true")
-	else:
-		handler = logging.StreamHandler()
-
-	logFormat = '[%(asctime)s] [%(levelname)s] - %(message)s'
-	# format ref: https://docs.python.org/2/library/logging.html#logrecord-attributes
-
-	handler.setFormatter(logging.Formatter(logFormat))
-
-	log.addHandler(handler)
-
-	if args.verbose:
-		log.setLevel(level=logging.INFO)
-	elif args.debug:
-		log.setLevel(level=logging.DEBUG)
-	elif args.quiet:
-		log.setLevel(level=logging.ERROR)
-	else:
-		log.setLevel(level=logging.WARN)
-
-		
-	# start/end & interval
-	log.debug('Initializing variables')
-	dateToStartFrom = None
-	dateToGoBackTo = None
-	timeInterval = None
-
-	if(args.dateFrom is not None):
-		dateToStartFrom = datetime.datetime.strptime(args.dateFrom,'%Y-%m-%d') # ref: https://docs.python.org/2/library/datetime.html
-	else:
-		dateToStartFrom = datetime.datetime.now()
-
-	log.info('Date to start from: %s', dateToStartFrom)
-		
-	if(args.dateTo is not None):
-		dateToGoBackTo = datetime.datetime.strptime(args.dateTo,'%Y-%m-%d')
-	else:
-		dateToGoBackTo = dateToStartFrom - datetime.timedelta(weeks=4)
-
-	log.info('Date to go back to: %s',dateToGoBackTo)
-
-	totalTimePeriod = dateToStartFrom - dateToGoBackTo
-	log.info('Total period of time to find videos for: %s',str(totalTimePeriod))
-
-	if(args.interval is not None):
-		timeInterval = datetime.timedelta(days=int(args.interval))
-	else:
-		timeInterval = datetime.timedelta(weeks=4)
-
-	log.info('Time interval: %s',timeInterval)
-
-
-	# Strings
-	youtubeApiUrl = 'https://www.googleapis.com/youtube/v3/'
-	youtubeChannelsApiUrl = youtubeApiUrl + 'channels?key={0}&'.format(args.apiKey)
-	youtubeSearchApiUrl = youtubeApiUrl + 'search?key={0}&'.format(args.apiKey)
-
-	requestParametersChannelId = youtubeChannelsApiUrl + 'forUsername={0}&part=id'
-	requestChannelVideosInfo = youtubeSearchApiUrl + 'channelId={0}&part=id&order=date&type=video&publishedBefore={1}&publishedAfter={2}&pageToken={3}&maxResults=50'
-
-	youtubeVideoUrl = 'https://www.youtube.com/watch?v={0}'
-
-	isInitialized = True
-
 def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=None, logFilePath=None, outputFilePath='', quiet=None, verbose=None):
 	global isInitialized
 
@@ -163,11 +45,7 @@ def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=Non
 	global requestChannelVideosInfo
 	global dateToStartFrom
 	global dateToGoBackTo
-	global timeInterval
-	
-	#cheap hack.. I don't know how I can sleep at night
-	class ArgClass(object):
-		pass
+	global timeInterval	
 
 	args = argparse.Namespace()
 	# setattr(args, 'apiKey', apiKey)
@@ -249,6 +127,50 @@ def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=Non
 	youtubeVideoUrl = 'https://www.youtube.com/watch?v={0}'
 
 	isInitialized = True
+
+def read_args():
+	'''
+	read args from stdin
+	'''
+		
+	# we first initialize our parser then we use it to parse the provided args
+	# 	references: 
+	# 		https://docs.python.org/2/library/argparse.html
+	#		http://pymotw.com/2/argparse/
+	#		https://docs.python.org/2/howto/argparse.html
+
+	parser = argparse.ArgumentParser(description='This program finds all videos in a given Youtube channel')
+
+	parser.add_argument('-k', '--api-key', dest='apiKey', action='store', required=True, help='Google Data API key to use. You can get one here: https://console.developers.google.com')
+	parser.add_argument('-c', '--channel', dest='channel', action='store', required=True, help='Youtube channel to get videos from')
+	parser.add_argument('-o', '--output-file-path', dest='outputFilePath', action='store', default='', help='File to write found video links to (content replaced each time). If this option is not specified, the links are sent to the standard output')
+
+	parser.add_argument('-x', '--date-from', dest='dateFrom', action='store', help='Videos published after this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, the current date is taken')
+	parser.add_argument('-y', '--date-to', dest='dateTo', action='store', help='Videos published before this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, we go back one month (related to -b / --date-from)')
+	parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 30 days')
+
+	outputDetailLevel = parser.add_mutually_exclusive_group()
+	outputDetailLevel.add_argument('-q', '--quiet', dest='quiet', action='store_true', default=False, help='Only print out results.. or fatal errors')
+	outputDetailLevel.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False, help='Print out detailed information during execution (e.g., invoked URLs, ...)')
+	outputDetailLevel.add_argument('-d', '--debug', dest='debug', action='store_true', default=False, help='Print out all the gory details')
+
+	parser.add_argument('-l', '--log-file-path', dest='logFilePath', action='store', help='File to write the logs to (content replaced each time). If this option is not specified, the logs are sent to the standard output (according to the verbosity level)')
+
+	parser.add_argument('--version', action='version', version='1.0') # aka how much time can we lose while programming :p (https://code.google.com/p/argparse/issues/detail?id=43)
+
+	args = parser.parse_args()
+
+	# not elegant, but reduced redundancy compared to before
+	setup(apiKey=args.apiKey, 
+		channel=args.channel, 
+		outputFilePath=args.outputFilePath, 
+		dateFrom=args.dateFrom, 
+		dateTo=args.dateTo, 
+		interval=args.interval, 
+		logFilePath=args.logFilePath, 
+		quiet=args.quiet, 
+		verbose=args.verbose, 
+		debug=args.debug)
 
 # ------------------------------------------
 # Functions
