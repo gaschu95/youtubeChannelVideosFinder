@@ -81,9 +81,6 @@ def read_args():
 
 	args = parser.parse_args()
 
-	print(type(args))
-	print(str(args))
-
 	# logger configuration
 	log = logging.getLogger('_name_')
 
@@ -167,25 +164,6 @@ def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=Non
 	global dateToStartFrom
 	global dateToGoBackTo
 	global timeInterval
-
-	# parser = argparse.ArgumentParser(description='This program finds all videos in a given Youtube channel')
-
-	# parser.add_argument('-k', '--api-key', dest='apiKey', action='store', required=True, help='Google Data API key to use. You can get one here: https://console.developers.google.com')
-	# parser.add_argument('-c', '--channel', dest='channel', action='store', required=True, help='Youtube channel to get videos from')
-	# parser.add_argument('-o', '--output-file-path', dest='outputFilePath', action='store', default='', help='File to write found video links to (content replaced each time). If this option is not specified, the links are sent to the standard output')
-
-	# parser.add_argument('-x', '--date-from', dest='dateFrom', action='store', help='Videos published after this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, the current date is taken')
-	# parser.add_argument('-y', '--date-to', dest='dateTo', action='store', help='Videos published before this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, we go back one month (related to -b / --date-from)')
-	# parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 30 days')
-
-	# outputDetailLevel = parser.add_mutually_exclusive_group()
-	# outputDetailLevel.add_argument('-q', '--quiet', dest='quiet', action='store_true', default=False, help='Only print out results.. or fatal errors')
-	# outputDetailLevel.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False, help='Print out detailed information during execution (e.g., invoked URLs, ...)')
-	# outputDetailLevel.add_argument('-d', '--debug', dest='debug', action='store_true', default=False, help='Print out all the gory details')
-
-	# parser.add_argument('-l', '--log-file-path', dest='logFilePath', action='store', help='File to write the logs to (content replaced each time). If this option is not specified, the logs are sent to the standard output (according to the verbosity level)')
-
-	# parser.add_argument('--version', action='version', version='1.0') # aka how much time can we lose while programming :p (https://code.google.com/p/argparse/issues/detail?id=43)
 	
 	#cheap hack.. I don't know how I can sleep at night
 	class ArgClass(object):
@@ -203,8 +181,6 @@ def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=Non
 	args.quiet = quiet
 	args.verbose = verbose
 	args.debug = debug
-
-	print(str(args))
 
 	# logger configuration
 	log = logging.getLogger('_name_')
