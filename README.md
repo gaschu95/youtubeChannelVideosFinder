@@ -43,7 +43,7 @@ To display the full list of supported arguments, use '-h' or '--help'.
 							Longest period of time (in days) to retrieve videos at
 							a time for. Since the Youtube API only permits to
 							retrieve 500 results, the interval cannot be too big,
-							otherwise we might hit the limit. Default: 30 days
+							otherwise we might hit the limit. Default: 52 weeks
 	  -q, --quiet           Only print out results.. or fatal errors
 	  -v, --verbose         Print out detailed information during execution (e.g.,
 							invoked URLs, ...)
