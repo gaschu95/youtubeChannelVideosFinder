@@ -14,123 +14,32 @@ import logging
 
 from rfc3339 import rfc3339
 
-isInitialized = False
-
-log = None
-args = None
-
 youtubeApiUrl = 'https://www.googleapis.com/youtube/v3/'
 youtubeChannelsApiUrl = youtubeApiUrl + 'channels?key={0}&'
 youtubeSearchApiUrl = youtubeApiUrl + 'search?key={0}&'
 
-requestParametersChannelId = youtubeChannelsApiUrl + 'forUsername={0}&part=id'
-requestChannelVideosInfo = youtubeSearchApiUrl + 'channelId={0}&part=id&order=date&type=video&publishedBefore={1}&publishedAfter={2}&pageToken={3}&maxResults=50'
+requestParametersChannelId = 'forUsername={0}&part=id'
+requestChannelVideosInfo = 'channelId={0}&part=id&order=date&type=video&publishedBefore={1}&publishedAfter={2}&pageToken={3}&maxResults=50'
 
-youtubeVideoUrl = 'https://www.youtube.com/watch?v={0}'
+defaultInterval = datetime.timedelta(weeks=52)
+defaultTimeToGoBackTo = datetime.datetime.strptime('2005-02-14','%Y-%m-%d') #Youtube was founded => there are no earlier videos
 
-dateToStartFrom = None
-dateToGoBackTo = None
-timeInterval = None
+# logger configuration
+log = logging.getLogger('_name_')
+logFormat = '[%(asctime)s] [%(levelname)s] - %(message)s'
+# format ref: https://docs.python.org/2/library/logging.html#logrecord-attributes
 
-def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=None, logFilePath=None, outputFilePath='', quiet=None, verbose=None):
-	global isInitialized
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(logFormat))
+log.addHandler(handler)
 
-	global log
-	global args
-	global youtubeApiUrl
-	global youtubeChannelsApiUrl
-	global youtubeSearchApiUrl
-
-	global requestParametersChannelId
-	global requestChannelVideosInfo
-	global dateToStartFrom
-	global dateToGoBackTo
-	global timeInterval	
-
-	args = argparse.Namespace()
-	# setattr(args, 'apiKey', apiKey)
-	args.apiKey = apiKey
-	args.channel = channel
-	args.outputFilePath = outputFilePath
-	args.dateFrom = dateFrom
-	args.dateTo = dateTo
-	args.interval = interval
-	args.logFilePath = logFilePath
-	args.quiet = quiet
-	args.verbose = verbose
-	args.debug = debug
-
-	# logger configuration
-	log = logging.getLogger('_name_')
-
-	handler = None
-	if(args.logFilePath is not None):
-		handler = logging.FileHandler(args.logFilePath, "w", encoding=None, delay="true")
-	else:
-		handler = logging.StreamHandler()
-
-	logFormat = '[%(asctime)s] [%(levelname)s] - %(message)s'
-	# format ref: https://docs.python.org/2/library/logging.html#logrecord-attributes
-
-	handler.setFormatter(logging.Formatter(logFormat))
-
-	log.addHandler(handler)
-
-	if args.verbose:
-		log.setLevel(level=logging.INFO)
-	elif args.debug:
-		log.setLevel(level=logging.DEBUG)
-	elif args.quiet:
-		log.setLevel(level=logging.ERROR)
-	else:
-		log.setLevel(level=logging.WARN)
-
-		
-	# start/end & interval
-	log.debug('Initializing variables')
-	dateToStartFrom = None
-	dateToGoBackTo = None
-	timeInterval = None
-
-	if(args.dateFrom is not None):
-		dateToStartFrom = datetime.datetime.strptime(args.dateFrom,'%Y-%m-%d') # ref: https://docs.python.org/2/library/datetime.html
-	else:
-		dateToStartFrom = datetime.datetime.now()
-
-	log.info('Date to start from: %s', dateToStartFrom)
-		
-	if(args.dateTo is not None):
-		dateToGoBackTo = datetime.datetime.strptime(args.dateTo,'%Y-%m-%d')
-	else:
-		dateToGoBackTo = dateToStartFrom - datetime.timedelta(weeks=4)
-
-	log.info('Date to go back to: %s',dateToGoBackTo)
-
-	totalTimePeriod = dateToStartFrom - dateToGoBackTo
-	log.info('Total period of time to find videos for: %s',str(totalTimePeriod))
-
-	if(args.interval is not None):
-		timeInterval = datetime.timedelta(days=int(args.interval))
-	else:
-		timeInterval = datetime.timedelta(weeks=52)
-
-	log.info('Time interval: %s',timeInterval)
-
-	# Strings
-	youtubeApiUrl = 'https://www.googleapis.com/youtube/v3/'
-	youtubeChannelsApiUrl = youtubeApiUrl + 'channels?key={0}&'.format(args.apiKey)
-	youtubeSearchApiUrl = youtubeApiUrl + 'search?key={0}&'.format(args.apiKey)
-
-	requestParametersChannelId = youtubeChannelsApiUrl + 'forUsername={0}&part=id'
-	requestChannelVideosInfo = youtubeSearchApiUrl + 'channelId={0}&part=id&order=date&type=video&publishedBefore={1}&publishedAfter={2}&pageToken={3}&maxResults=50'
-
-	youtubeVideoUrl = 'https://www.youtube.com/watch?v={0}'
-
-	isInitialized = True
+# ------------------------------------------
+# Functions
+# ------------------------------------------
 
 def read_args():
 	'''
-	read args from stdin
+	read args from stdin and returns them
 	'''
 		
 	# we first initialize our parser then we use it to parse the provided args
@@ -143,43 +52,38 @@ def read_args():
 
 	parser.add_argument('-k', '--api-key', dest='apiKey', action='store', required=True, help='Google Data API key to use. You can get one here: https://console.developers.google.com')
 	parser.add_argument('-c', '--channel', dest='channel', action='store', required=True, help='Youtube channel to get videos from')
-	parser.add_argument('-o', '--output-file-path', dest='outputFilePath', action='store', default='', help='File to write found video links to (content replaced each time). If this option is not specified, the links are sent to the standard output')
 
-	parser.add_argument('-x', '--date-from', dest='dateFrom', action='store', help='Videos published after this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, the current date is taken')
-	parser.add_argument('-y', '--date-to', dest='dateTo', action='store', help='Videos published before this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, we go back one month (related to -b / --date-from)')
-	parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 52 weeks')
+	parser.add_argument('-x', '--latest-date', dest='latest', action='store', help='Videos published after this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, the current date is taken')
+	parser.add_argument('-y', '--earliest-date', dest='earliest', action='store', help='Videos published before this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, we go back one month (related to -b / --date-from)')
+	parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 52')
 
 	outputDetailLevel = parser.add_mutually_exclusive_group()
 	outputDetailLevel.add_argument('-q', '--quiet', dest='quiet', action='store_true', default=False, help='Only print out results.. or fatal errors')
 	outputDetailLevel.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False, help='Print out detailed information during execution (e.g., invoked URLs, ...)')
 	outputDetailLevel.add_argument('-d', '--debug', dest='debug', action='store_true', default=False, help='Print out all the gory details')
 
-	parser.add_argument('-l', '--log-file-path', dest='logFilePath', action='store', help='File to write the logs to (content replaced each time). If this option is not specified, the logs are sent to the standard output (according to the verbosity level)')
-
 	parser.add_argument('--version', action='version', version='1.0') # aka how much time can we lose while programming :p (https://code.google.com/p/argparse/issues/detail?id=43)
 
 	args = parser.parse_args()
 
-	# not elegant, but reduced redundancy compared to before
-	setup(apiKey=args.apiKey, 
-		channel=args.channel, 
-		outputFilePath=args.outputFilePath, 
-		dateFrom=args.dateFrom, 
-		dateTo=args.dateTo, 
-		interval=args.interval, 
-		logFilePath=args.logFilePath, 
-		quiet=args.quiet, 
-		verbose=args.verbose, 
-		debug=args.debug)
+	if args.verbose:
+		log.setLevel(level=logging.INFO)
+	elif args.debug:
+		log.setLevel(level=logging.DEBUG)
+	elif args.quiet:
+		log.setLevel(level=logging.ERROR)
+	else:
+		log.setLevel(level=logging.WARN)
+	return args
 
-# ------------------------------------------
-# Functions
-# ------------------------------------------
-def getChannelId(channelName):
+def getChannelId(apiKey, channelName):
+	'''
+	Returns the ChannelID for the specified ChannelName
+	'''
 	log.info('Searching channel id for channel: %s',channelName)
-	retVal = -1
+	channelId = -1
 	try:
-		url = requestParametersChannelId.format(channelName)
+		url = youtubeChannelsApiUrl.format(apiKey) + requestParametersChannelId.format(channelName)
 		log.debug("Request: %s",url)
 		
 		log.debug('Sending request')
@@ -195,8 +99,8 @@ def getChannelId(channelName):
 		log.debug('Extracting the channel id')
 		if(responseAsJson['pageInfo'].get('totalResults') > 0):
 			returnedInfo = responseAsJson['items'][0]
-			retVal = returnedInfo.get('id')
-			log.info('Channel id found: %s',str(retVal))
+			channelId = returnedInfo.get('id')
+			log.info('Channel id found: %s',str(channelId))
 		else:
 			log.debug('Response received but it contains no item')
 			raise Exception('The channel id could not be retrieved. Make sure that the channel name is correct')
@@ -206,18 +110,22 @@ def getChannelId(channelName):
 	except Exception, err:
 		log.error('An exception occurred while trying to retrieve the channel id',exc_info=True)
 	
-	return retVal
+	return channelId
 
-def getChannelVideosPublishedInInterval(channelId,publishedBefore,publishedAfter):
+def _getChannelVideosPublishedInInterval(apiKey,channelId,publishedBefore,publishedAfter):
+	'''
+	!!! PLEASE USE getChannelVideos() !!!
+	Returns a list of videoIDs that were published by the specified channel between publishedAfter and publishedBefore
+	'''
 	log.info('Getting videos published before %s and after %s',publishedBefore,publishedAfter)
-	retVal = []
+	videoList = []
 	foundAll = False
 	
 	nextPageToken = ''
 
 	while not foundAll:
 		try:
-			url = requestChannelVideosInfo.format(channelId,publishedBefore,publishedAfter,nextPageToken)
+			url = youtubeSearchApiUrl.format(apiKey) + requestChannelVideosInfo.format(channelId,publishedBefore,publishedAfter,nextPageToken)
 			log.debug('Request: %s',url)
 			
 			log.debug('Sending request')
@@ -232,7 +140,7 @@ def getChannelVideosPublishedInInterval(channelId,publishedBefore,publishedAfter
 			log.debug('Response: %s',json.dumps(returnedVideos,indent=4))
 			
 			for video in returnedVideos:
-				retVal.append(video) 
+				videoList.append(video.get('id').get('videoId')) 
 				
 			try:
 				nextPageToken = responseAsJson['nextPageToken']
@@ -244,106 +152,90 @@ def getChannelVideosPublishedInInterval(channelId,publishedBefore,publishedAfter
 			log.error('An exception occurred while trying to retrieve a subset of the channel videos. Stopping search.',exc_info=True)
 			foundAll = True		
 	
-	log.info('Found %d video(s) in this time interval',len(retVal))
-	return retVal	
+	log.info('Found %d video(s) in this time interval',len(videoList))
+	return videoList	
 	
-def getChannelVideos(channelId,dateToStartFrom,dateToGoBackTo,timeInterval):	
-	log.info('Searching for videos published in channel between %s and %s',dateToStartFrom,dateToGoBackTo)
-	if(dateToStartFrom < dateToGoBackTo):
+def getChannelVideos(apiKey, channelId, earliest=None, latest=None, timeInterval=None):
+	'''
+	Returns a list of video IDs that were published between latest and earliest
+	'''
+	# convert to datetime objects if strings
+	if isinstance(earliest, str): earliest = datetime.datetime.strptime(earliest,'%Y-%m-%d')
+	if isinstance(latest, str): latest = datetime.datetime.strptime(latest,'%Y-%m-%d')
+	if isinstance(timeInterval, str): timeInterval = datetime.timedelta(days=int(timeInterval))
+	elif isinstance(timeInterval, int): timeInterval = datetime.timedelta(days=timeInterval)
+
+	# use default values if None
+	if latest is None: latest = datetime.datetime.now()
+	if earliest is None: earliest = defaultTimeToGoBackTo
+	if timeInterval is None: timeInterval = defaultInterval
+
+	log.info('Searching for videos published in channel between %s and %s',latest,earliest)
+	if(latest < earliest):
 		raise Exception('The date to start from cannot be before the date to go back to!')
 	
-	retVal = []
+	videoList = []
 	
 	# initialization
-	startFrom = dateToStartFrom
-	goBackTo = startFrom - timeInterval
+	latererer = latest
+	earliererer = latererer - timeInterval
 	
 	done = False
 	
 	while not done:
-		if(goBackTo < dateToGoBackTo):
+		if(earliererer < earliest):
 			log.debug('The interval is now larger than the remaining time span to retrieve videos for. Using the date to go back to as next boundary')
-			goBackTo = dateToGoBackTo
+			earliererer = earliest
 		
-		if(goBackTo == dateToGoBackTo):
+		if(earliererer == earliest):
 			log.debug('Last round-trip')
 			done = True
 		
 		log.debug('Converting timestamps to RFC3339 format')
-		goBackTo_rfc3339 = rfc3339(goBackTo,utc=True)
-		startFrom_rfc3339 = rfc3339(startFrom,utc=True)
+		earliererer_rfc3339 = rfc3339(earliererer,utc=True)
+		latererer_rfc3339 = rfc3339(latererer,utc=True)
 		
-		videosPublishedInInterval = getChannelVideosPublishedInInterval(channelId,startFrom_rfc3339,goBackTo_rfc3339)
+		videosPublishedInInterval = _getChannelVideosPublishedInInterval(apiKey,channelId,latererer_rfc3339,earliererer_rfc3339)
 		
 		log.debug('Adding videos found in the interval to the results list')
-		retVal.extend(videosPublishedInInterval)
-		log.debug('Total video(s) found so far: %d',len(retVal))
+		videoList.extend(videosPublishedInInterval)
+		log.debug('Total video(s) found so far: %d',len(videoList))
 		
 		if(not done):
 			# we simply continue from where we are
-			startFrom = goBackTo
+			latererer = earliererer
 			
 			# calculate the next date to go back to based on the given interval
-			nextDate = goBackTo - timeInterval
-			log.debug('Calculating the next date to go back to based on the interval: %s - %s => %s',goBackTo,timeInterval,nextDate)
-			goBackTo = nextDate
+			nextDate = earliererer - timeInterval
+			log.debug('Calculating the next date to go back to based on the interval: %s - %s => %s',earliererer,timeInterval,nextDate)
+			earliererer = nextDate
 			
-	log.info('Found %d video(s) in total',len(retVal))
-	return retVal	
+	log.info('Found %d video(s) in total',len(videoList))
+	return videoList	
 
 
-def getVideoURL(videoId):
-	retVal = youtubeVideoUrl.format(videoId)
-	log.debug('Video URL: %s',retVal)
-	return retVal
-
-	
 # ------------------------------------------
 # Entry point
 # ------------------------------------------
 def main():
+	args = read_args()
 	try:
-		channelId = getChannelId(args.channel)
+		channelId = getChannelId(args.apiKey, args.channel)
 		if(channelId == -1):
 			raise Exception('Impossible to continue without the channel id')
 		
-		channelVideos = getChannelVideos(channelId,dateToStartFrom,dateToGoBackTo,timeInterval)
+		channelVideos = getChannelVideos(args.apiKey, channelId, args.earliest, args.latest, args.interval)
 		
-		if(not len(channelVideos) > 0):
+		if(len(channelVideos) <= 0):
 			log.info("No video found for that channel! Either there's none or a problem occurred. Enable verbose or debug logging for more details..")
 			sys.exit(0)
 		
-		log.info('Generating links for found videos')
-		videoURLs = []
 		for video in channelVideos:
-			log.debug('Processing video: %s',json.dumps(video,indent=4))
-			videoId = video.get('id').get('videoId')
-			log.debug('Video id: %s',videoId)
-			videoURL = getVideoURL(videoId)
-			videoURLs.append(videoURL) 
-		if(args.outputFilePath is not None and args.outputFilePath is not ''):
-			log.debug('File output enabled')
-			log.info('Links will be written to %s',args.outputFilePath)
-		
-			f = None
-			try:
-				f = open(args.outputFilePath,'w')
-			except Exception, err:
-				log.critical('Could not create/open the output file!',exc_info=True)
-				raise Exception('Impossible to write the links to the output file. Verify that the path is correct and that it is accessible/can be created/can be written to')
-			
-			for videoURL in videoURLs:
-				f.write(videoURL+"\n")
-				
-			f.close()
-		else:
-			for videoURL in videoURLs:
-				print videoURL
+			print(video)
 		log.info('Done!')
 	except Exception, err:
 		log.critical('We tried our best but still..',exc_info=True)
 		sys.exit(2)
 
 if __name__ == '__main__':
-    read_args()
     main()
