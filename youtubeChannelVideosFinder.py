@@ -112,7 +112,7 @@ def setup(apiKey, channel, dateFrom=None, dateTo=None, debug=False, interval=Non
 	if(args.interval is not None):
 		timeInterval = datetime.timedelta(days=int(args.interval))
 	else:
-		timeInterval = datetime.timedelta(weeks=4)
+		timeInterval = datetime.timedelta(weeks=52)
 
 	log.info('Time interval: %s',timeInterval)
 
@@ -147,7 +147,7 @@ def read_args():
 
 	parser.add_argument('-x', '--date-from', dest='dateFrom', action='store', help='Videos published after this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, the current date is taken')
 	parser.add_argument('-y', '--date-to', dest='dateTo', action='store', help='Videos published before this date will not be retrieved (expected format: yyyy-mm-dd). If not specified, we go back one month (related to -b / --date-from)')
-	parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 30 days')
+	parser.add_argument('-i', '--interval', dest='interval', action='store', help='Longest period of time (in days) to retrieve videos at a time for. Since the Youtube API only permits to retrieve 500 results, the interval cannot be too big, otherwise we might hit the limit. Default: 52 weeks')
 
 	outputDetailLevel = parser.add_mutually_exclusive_group()
 	outputDetailLevel.add_argument('-q', '--quiet', dest='quiet', action='store_true', default=False, help='Only print out results.. or fatal errors')
