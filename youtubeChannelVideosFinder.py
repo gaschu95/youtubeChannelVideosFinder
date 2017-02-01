@@ -77,7 +77,7 @@ def read_args():
 		log.setLevel(level=logging.WARN)
 	return args
 
-def getChannelId(apiKey, channelName):
+def get_channel_id(apiKey, channelName):
 	'''
 	Returns the ChannelID for the specified ChannelName
 	'''
@@ -113,9 +113,9 @@ def getChannelId(apiKey, channelName):
 	
 	return channelId
 
-def _getChannelVideosPublishedInInterval(apiKey,channelId,publishedBefore,publishedAfter):
+def _get_channel_videos_published_in_interval(apiKey,channelId,publishedBefore,publishedAfter):
 	'''
-	!!! PLEASE USE getChannelVideos() !!!
+	!!! PLEASE USE get_channel_videos() !!!
 	Returns a list of videoIDs that were published by the specified channel between publishedAfter and publishedBefore
 	'''
 	log.info('Getting videos published before %s and after %s',publishedBefore,publishedAfter)
@@ -156,7 +156,7 @@ def _getChannelVideosPublishedInInterval(apiKey,channelId,publishedBefore,publis
 	log.info('Found %d video(s) in this time interval',len(videoList))
 	return videoList	
 	
-def getChannelVideos(apiKey, channelId, earliest=None, latest=None, timeInterval=None):
+def get_channel_videos(apiKey, channelId, earliest=None, latest=None, timeInterval=None):
 	'''
 	Returns a list of video IDs that were published between latest and earliest
 	'''
@@ -196,7 +196,7 @@ def getChannelVideos(apiKey, channelId, earliest=None, latest=None, timeInterval
 		earliererer_rfc3339 = rfc3339(earliererer,utc=True)
 		latererer_rfc3339 = rfc3339(latererer,utc=True)
 		
-		videosPublishedInInterval = _getChannelVideosPublishedInInterval(apiKey,channelId,latererer_rfc3339,earliererer_rfc3339)
+		videosPublishedInInterval = _get_channel_videos_published_in_interval(apiKey,channelId,latererer_rfc3339,earliererer_rfc3339)
 		
 		log.debug('Adding videos found in the interval to the results list')
 		videoList.extend(videosPublishedInInterval)
@@ -221,11 +221,11 @@ def getChannelVideos(apiKey, channelId, earliest=None, latest=None, timeInterval
 def main():
 	args = read_args()
 	try:
-		channelId = getChannelId(args.apiKey, args.channel)
+		channelId = get_channel_id(args.apiKey, args.channel)
 		if(channelId == -1):
 			raise Exception('Impossible to continue without the channel id')
 		
-		channelVideos = getChannelVideos(args.apiKey, channelId, args.earliest, args.latest, args.interval)
+		channelVideos = get_channel_videos(args.apiKey, channelId, args.earliest, args.latest, args.interval)
 		
 		if(len(channelVideos) <= 0):
 			log.info("No video found for that channel! Either there's none or a problem occurred. Enable verbose or debug logging for more details..")
