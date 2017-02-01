@@ -5,6 +5,7 @@
 # Imports
 # ------------------------------------------
 import urllib
+import requests
 import json
 import time
 import datetime
@@ -12,7 +13,7 @@ import sys
 import argparse
 import logging
 
-from rfc3339 import rfc3339
+from .rfc3339 import rfc3339
 
 youtubeApiUrl = 'https://www.googleapis.com/youtube/v3/'
 youtubeChannelsApiUrl = youtubeApiUrl + 'channels?key={0}&'
@@ -87,10 +88,10 @@ def getChannelId(apiKey, channelName):
 		log.debug("Request: %s",url)
 		
 		log.debug('Sending request')
-		response = urllib.urlopen(url)
+		response = requests.get(url)
 		
 		log.debug('Parsing the response')
-		responseAsJson = json.load(response)
+		responseAsJson = json.loads(response.content.decode('utf-8'))
 
 		response.close()
 		
@@ -107,7 +108,7 @@ def getChannelId(apiKey, channelName):
 			
 		if(responseAsJson['pageInfo'].get('totalResults') > 1):
 			log.debug('Multiple channels were received in the response. If this happens, something can probably be improved around here')
-	except Exception, err:
+	except Exception:
 		log.error('An exception occurred while trying to retrieve the channel id',exc_info=True)
 	
 	return channelId
@@ -129,10 +130,10 @@ def _getChannelVideosPublishedInInterval(apiKey,channelId,publishedBefore,publis
 			log.debug('Request: %s',url)
 			
 			log.debug('Sending request')
-			response = urllib.urlopen(url)
+			response = requests.get(url)
 			
 			log.debug('Parsing the response')
-			responseAsJson = json.load(response)
+			responseAsJson = json.loads(response.content.decode('utf-8'))
 			
 			response.close()
 			
@@ -145,10 +146,10 @@ def _getChannelVideosPublishedInInterval(apiKey,channelId,publishedBefore,publis
 			try:
 				nextPageToken = responseAsJson['nextPageToken']
 				log.info('More videos to load, continuing')
-			except Exception, err:
+			except Exception:
 				log.info('No more videos to load')
 				foundAll = True
-		except Exception, err:
+		except Exception:
 			log.error('An exception occurred while trying to retrieve a subset of the channel videos. Stopping search.',exc_info=True)
 			foundAll = True		
 	
@@ -233,7 +234,7 @@ def main():
 		for video in channelVideos:
 			print(video)
 		log.info('Done!')
-	except Exception, err:
+	except Exception:
 		log.critical('We tried our best but still..',exc_info=True)
 		sys.exit(2)
 
